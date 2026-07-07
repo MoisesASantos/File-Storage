@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"mime"
     "os"
+	"crypto/rand"
     "path/filepath"
+	"encoding/base64"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
 )
@@ -80,11 +82,14 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
     	return 
 	}
 
-	url := fmt.Sprintf("http://localhost:8091/assets/%s%s", video.ID.String(), ext,)
+	bytes := make([]byte, 32)
+	rand.Read(bytes)
+
+	name := base64.RawURLEncoding.EncodeToString(bytes)
+
+	url := fmt.Sprintf("%s%s", name, ext,)
 
 	video.ThumbnailURL = &url
-
-
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
