@@ -6,13 +6,74 @@ import (
 	"fmt"
 	"os"
 	"io"
+	"bytes"
+	"os/exec"
 	"github.com/google/uuid"
 	"encoding/base64"
 	"crypto/rand"
+	"encoding/json"
+	"errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 )
+
+
+type FFProbeOutput struct {
+	Streams []Stream `json:"streams"`
+}
+
+type Stream struct {
+	CodecType string `json:"codec_type"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+}
+
+func (o FFProbeOutput) VideoStream() *Stream {
+	for i := range o.Streams {
+		if o.Streams[i].CodecType == "video" {
+			return &o.Streams[i]
+		}
+	}
+	return nil
+}
+
+func getVideoAspectRatio(filePath string) (string, error) {
+	cmd := exec.Command(
+		"ffprobe",
+		"-v", "error",
+		"-print_format", "json",
+		"-show_streams",
+		filePath,
+	)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+
+	var output FFProbeOutput
+	if err := json.Unmarshal(out.Bytes(), &output); err != nil {
+		return "", err
+	}
+
+	video := output.VideoStream()
+	if video == nil {
+		return "", errors.New("no video stream found")
+	}
+
+	switch {
+	case video.Width > video.Height:
+		return "landscape", nil
+	case video.Width < video.Height:
+		return "portrait", nil
+	default:
+		return "square", nil
+	}
+}
+
 
 func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request) {
 
@@ -87,13 +148,20 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
     	return 
 	}
 
+	aspectRatio, err := getVideoAspectRatio(f.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't save temp file", err)
+		return
+	}
+
+	fmt.Println(aspectRatio)
+
 	// Generate a unique object key
 	bytes := make([]byte, 32)
 	rand.Read(bytes)
 	name := base64.RawURLEncoding.EncodeToString(bytes)
-	key := fmt.Sprintf("%s.mp4", name,)
+	key := fmt.Sprintf("%s/%s.mp4", aspectRatio, name,)
 	
-
 	// Upload to S3
 	_, err = cfg.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
