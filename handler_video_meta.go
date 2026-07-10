@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"log"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 	"github.com/google/uuid"
@@ -94,11 +93,7 @@ func (cfg *apiConfig) handlerVideoGet(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, "Couldn't get video", err)
 		return
 	}
-	videoReturn, err := cfg.DbVideoToSignedVideo(video)
-	if err != nil {
-		return
-	}
-	respondWithJSON(w, http.StatusOK, videoReturn)
+	respondWithJSON(w, http.StatusOK, video)
 }
 
 func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Request) {
@@ -117,16 +112,5 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 		respondWithError(w, http.StatusInternalServerError, "Couldn't retrieve videos", err)
 		return
 	}
-
-	for i, video := range videos {
-		videoReturn, err := cfg.DbVideoToSignedVideo(video)
-		if err != nil {
-			log.Println(err)
-			respondWithError(w, http.StatusInternalServerError, "Couldn't generate signed URL", err)
-			return
-		}
-		videos[i] = videoReturn
-	}
-
 	respondWithJSON(w, http.StatusOK, videos)
 }

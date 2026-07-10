@@ -90,15 +90,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	url := fmt.Sprintf("%s%s", name, ext,)
 
 	video.ThumbnailURL = &url
-	videoReturn, err := cfg.DbVideoToSignedVideo(video)
-	if err != nil {
-		return
-	}
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, videoReturn)
+	respondWithJSON(w, http.StatusOK, video)
 }
